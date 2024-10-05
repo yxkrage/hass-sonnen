@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sonnen Batterie Setup - Connection",
+        "description": "Enter the URL and API Token of your Sonnen Batterie",
+        "data": {
+          "host_url": "URL to your Sonnen Batterie",
+          "api_token": "API Token"
+        }
+      },
+      "name": {
+        "title": "Sonnen Batterie Setup - Name",
+        "description": "Give your Sonnen Batterie a name. This name will be used in the entity_id of the sensors.",
+        "data": {
+          "name": "Name"
+        }
+      }
+    }
+  }
+}
