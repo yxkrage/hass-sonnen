@@ -3,9 +3,9 @@ import logging
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr
 
-from .const import SENSORS_LIST, CONF_NAME_IS_DEFAULT, DATA_TYPE_FLAG_GROUP
+from .const import DATA_TYPE_FLAG_GROUP, SENSORS_LIST
 from .sonnen_host import SonnenBatterieHost
 from .utils import get_sonnen_host_by_entry_id
 
@@ -55,25 +55,27 @@ class SonnenBatterieEntity(SensorEntity):
         self._sonnen_host = sonnen_host
         self._config_entry = config_entry
 
-        # Elements in sensor_config are: name, friendly name, path in host data, data type, uom and icon
-        # Give a name to the sensor
+        # Set entity attributes
+            # Elements in sensor_config are: name, friendly name, path in host data, data type, uom and icon
         self._measurement_name = sensor_config[0]
-        if self._config_entry.data[CONF_NAME_IS_DEFAULT]:
-            # If the name is default, use the serial number of the SonnenBatterie in the name
-            self._name = f"sonnen_batterie_{self._sonnen_host.serial_number}_{self._measurement_name}"
-        else:
-            # If the name is not default, use the name from the config entry
-            name = self._config_entry.data.get("name")
-            # Remove all chars that are not letters or numbers and make lowercase
-            name_normalized = "".join([c for c in name if c.isalnum()]).lower()
-            self._name = f"sonnen_batterie_{name_normalized}_{self._measurement_name}"
-
         self._friendly_name = sensor_config[1]
         self._data_path = sensor_config[2]
         self._data_type = sensor_config[3]
         self._uom = sensor_config[4]
         self._icon = sensor_config[5]
-        self._unique_id = f"sonnen_{self._sonnen_host.serial_number}_{self._name}"
+
+        self._name = f"sonnen_batterie_{self.host_name_normalized}_{self._measurement_name}"
+        self._unique_id = f"sonnen_batterie_{self._sonnen_host.serial_number}_{self._measurement_name}"
+
+    @property
+    def host_name(self):
+        """Return the name of the host."""
+        return self._sonnen_host.host_name
+
+    @property
+    def host_name_normalized(self):
+        """Remove all chars that are not letters or numbers and make lowercase."""
+        return "".join([c for c in self.host_name if c.isalnum()]).lower()
 
     @property
     def unique_id(self):
@@ -83,11 +85,6 @@ class SonnenBatterieEntity(SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return self._friendly_name
-
-    @property
-    def friendly_name(self):
-        """Return the friendly name of the sensor."""
         return self._friendly_name
 
     @property
@@ -115,7 +112,7 @@ class SonnenBatterieEntity(SensorEntity):
                 return data
 
         except KeyError:
-            _LOGGER.error(f"Could not find data for sensor {self._name} in data from host {self._sonnen_host.host}" )
+            _LOGGER.error("Could not find data for sensor %s in data from host %s", self._name, self._sonnen_host.host)
             return None
 
     @property

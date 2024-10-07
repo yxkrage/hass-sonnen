@@ -1,32 +1,15 @@
 """Constants for the Sonnen Batterie integration."""
 
 DOMAIN = 'sonnen_batterie'
-# COMPONENT_TYPES = ["sensor","select","number","switch"]
-CONST_COMPONENT_TYPES = []
-
-# Hass data keys
-CONST_HASS_DATA_CONFIG = 'config'
-CONST_HASS_DATA_OBJECT = 'object'
+CONST_COMPONENT_TYPES = ["sensor"]  # ["sensor","select","number","switch"]
 
 # Configuration flow keys
-CONF_HOST_URL = 'host_url'
-CONF_API_TOKEN = 'api_token'
-CONF_NAME = 'name'
-CONF_NAME_IS_DEFAULT = 'name_is_default'
+ENTRY_HOST_URL = 'host_url'
+ENTRY_API_TOKEN = 'api_token'
+ENTRY_NAME = 'name'
+ENTRY_SERIAL_NUMBER = 'serial_number'
 
-# # Other constants
-# CONST_HOUR = 'hour'
-# CONST_MINUTE = 'minute'
-# CONST_SECOND = 'second'
-
-# # Functional Parameters
-# POLL_API_TIME_PATTERN = {
-#     CONST_HOUR: '*',
-#     CONST_MINUTE: '*',
-#     CONST_SECOND: '*'
-# }
-
-DATA_TYPE_FLAG_GROUP = "flag_group"
+DATA_TYPE_FLAG_GROUP = "flag_group"  # Custom data type for to indicate that the data is a group of boolean flags
 
 SENSORS_LIST = [
     # ["name", "friendly name", "path in host data", "data type", "uom", "icon", "default value"]

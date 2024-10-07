@@ -3,19 +3,20 @@
     "step": {
       "user": {
         "title": "Sonnen Batterie Setup - Connection",
-        "description": "Enter the URL and API Token of your Sonnen Batterie",
+        "description": "Enter the URL and API Token of your Sonnen Batterie and give it a name. The name will be used in the entity_id of the sensors.",
         "data": {
           "host_url": "URL to your Sonnen Batterie",
-          "api_token": "API Token"
-        }
-      },
-      "name": {
-        "title": "Sonnen Batterie Setup - Name",
-        "description": "Give your Sonnen Batterie a name. This name will be used in the entity_id of the sensors.",
-        "data": {
-          "name": "Name"
+          "api_token": "API Token",
+          "name": "Give your Sonnen Batterie a name"
         }
       }
+    },
+    "error": {
+      "duplicate_name": "A Sonnen Batterie with this name is already configured. Please choose a different name.",
+      "duplicate_serial_number": "A Sonnen Batterie with this serial number is already configured.",
+      "no_data_from_host": "Failed retrieve data from the Sonnen Batterie. Please check API token and try again.",
+      "failed_to_connect": "Failed to connect to the Sonnen Batterie. Please check the URL and try again.",
+      "failed_to_connect_unknown": "An unknown error occurred while trying to connect to the Sonnen Batterie."
     }
   }
 }

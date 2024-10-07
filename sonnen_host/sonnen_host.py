@@ -21,12 +21,14 @@ class SonnenBatterieHost:
         self,
         host: str,
         api_token: str,
+        host_name: str,
         entry_id: str,
         aiohttp_session: aiohttp.ClientSession
     ) -> None:
         """WARNING: Do not call this method directly. Use the create method instead."""
         self.host = host
         self.api_token = api_token
+        self.host_name = host_name
         self.entry_id = entry_id
         self.aiohttp_session = aiohttp_session
 
@@ -42,13 +44,14 @@ class SonnenBatterieHost:
         cls,
         host: str,
         api_token: str,
+        host_name: str = None,  # Name as given in Config Entry
         entry_id: str = None,
         aiohttp_session: aiohttp.ClientSession = None
     ) -> 'SonnenBatterieHost':
         """Create a new SonnenBatterie object."""
         if aiohttp_session is None:
             aiohttp_session = aiohttp.ClientSession()
-        return cls(host=host, api_token=api_token, entry_id=entry_id, aiohttp_session=aiohttp_session)
+        return cls(host=host, api_token=api_token, host_name=host_name, entry_id=entry_id, aiohttp_session=aiohttp_session)
 
     async def is_connected(self) -> bool:
         """Check if the SonnenBatterie is connected."""
@@ -84,9 +87,9 @@ class SonnenBatterieHost:
                 self._serial_number_uri = src
                 break
 
-    async def _get_serial_number_from_host(self, serial_number_uri: str) -> None:
+    async def _get_serial_number_from_host(self) -> None:
         # Get the device ID from API URL
-        async with self.aiohttp_session.get(f"{self.host}{serial_number_uri}", headers={'Auth-Token': self.api_token}) as response:
+        async with self.aiohttp_session.get(f"{self.host}{self._serial_number_uri}", headers={'Auth-Token': self.api_token}) as response:
             if response.status != 200:
                 raise aiohttp.ClientResponseError(
                     request_info=response.request_info,
@@ -110,7 +113,7 @@ class SonnenBatterieHost:
         self._parse_dashboard_html(self.data_dashboard_html)
 
         # Get the serial number from the host
-        await self._get_serial_number_from_host(self._serial_number_uri)
+        await self._get_serial_number_from_host()
 
         # Set the flag to indicate that we have data from the host
         self.have_data_from_host = True
@@ -134,7 +137,6 @@ class SonnenBatterieHost:
 
     async def close_session(self) -> None:
         """Close the aiohttp session."""
-        # await self.aiohttp_session.__aexit__(None, None, None)
         await self.aiohttp_session.close()
 
     @property
@@ -143,16 +145,6 @@ class SonnenBatterieHost:
         return {
             "identifiers": {(DOMAIN, self.serial_number)},
             "name": "Sonnen Batterie",
-            "manufacturer": "Sonnen",
+            "manufacturer": "Sonnen GmbH",
             "model": "Unknown"  # TODO: Get the model from the host
         }
-
-# # Usage example
-# async def main():
-#     sonnen = await SonnenBatterie.create("http://example.com", "your_api_token")
-#     status = await sonnen._get_status()
-#     print(status)
-#     await sonnen.close_session()
-
-# # Run the example
-# asyncio.run(main())

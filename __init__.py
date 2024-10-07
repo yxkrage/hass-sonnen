@@ -5,7 +5,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_API_TOKEN, CONF_HOST_URL, CONST_COMPONENT_TYPES, DOMAIN
+from .const import CONST_COMPONENT_TYPES, DOMAIN, ENTRY_API_TOKEN, ENTRY_HOST_URL
 from .sonnen_host import SonnenBatterieHost
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,10 +24,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Create the SonnenBatterie object
     # aiohttp_session = async_get_clientsession(hass=hass)
-    _LOGGER.info(f"Creating Sonnen Batterie host connection for {config[CONF_HOST_URL]}")
+    _LOGGER.info("Creating Sonnen Batterie host connection for %s", config[ENTRY_HOST_URL])
     sonnen_host:SonnenBatterieHost = await SonnenBatterieHost.create(
-        host=config[CONF_HOST_URL],
-        api_token=config[CONF_API_TOKEN],
+        host=config[ENTRY_HOST_URL],
+        api_token=config[ENTRY_API_TOKEN],
+        host_name=config[ENTRY_HOST_URL],
         entry_id=entry.entry_id,
         # aiohttp_session=aiohttp_session
     )
@@ -35,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Check if the SonnenBatterie is connected
     await sonnen_host.get_data_from_host()
     if not sonnen_host.data:
-        _LOGGER.error(f"SonnenBatterie at {config[CONF_HOST_URL]} is not connected.")
+        _LOGGER.error("SonnenBatterie at %s is not connected.", config[ENTRY_HOST_URL])
         return False
 
     # data = await sonnen_host.get_data()

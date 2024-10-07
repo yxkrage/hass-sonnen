@@ -1,19 +1,22 @@
-import asyncio
 import logging
 
-import aiohttp
+from aiohttp.client_exceptions import ClientConnectorError
 import voluptuous as vol
 
 from homeassistant import config_entries
 
 from .const import (
-    CONF_API_TOKEN,
-    CONF_HOST_URL,
-    CONF_NAME,
-    CONF_NAME_IS_DEFAULT,
     DOMAIN,
+    ENTRY_API_TOKEN,
+    ENTRY_HOST_URL,
+    ENTRY_NAME,
+    ENTRY_SERIAL_NUMBER,
 )
 from .sonnen_host import SonnenBatterieHost
+from .utils import (
+    check_entries_for_duplicate_name,
+    check_entries_for_duplicate_serial_number,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,48 +36,51 @@ class SonnenBatterieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
 
+        errors = {}
         if user_input is not None:
-            _LOGGER.debug("Testing connection to Sonnen Batterie at %s", user_input[CONF_HOST_URL])
-            await self._create_sonnen_batterie_host(user_input[CONF_HOST_URL], user_input[CONF_API_TOKEN])
-            await self.sonnen_batterie_host.get_data_from_host()
-            if self.sonnen_batterie_host.data:
-                _LOGGER.info("Connection to Sonnen Batterie at %s successful", user_input[CONF_HOST_URL])
-                self.user_input = user_input  # Store the user input for the next step
-                return await self.async_step_name()
+            _LOGGER.debug("Testing connection to Sonnen Batterie at %s", user_input[ENTRY_HOST_URL])
+            try:
+                await self._create_sonnen_batterie_host(user_input[ENTRY_HOST_URL], user_input[ENTRY_API_TOKEN])
+                await self.sonnen_batterie_host.get_data_from_host()
+                if self.sonnen_batterie_host.data:
+                    _LOGGER.info("Connection to Sonnen Batterie at %s successful", user_input[ENTRY_HOST_URL])
+                    user_input[ENTRY_SERIAL_NUMBER] = self.sonnen_batterie_host.serial_number
+                    self.user_input = user_input  # Store the user input for the next step
+
+                    # Check that no other entry exists for this host name or serial number
+                    if check_entries_for_duplicate_name(hass=self.hass, name=user_input[ENTRY_NAME]):
+                        errors["base"] = "duplicate_name"
+                    elif check_entries_for_duplicate_serial_number(hass=self.hass, serial_number=self.sonnen_batterie_host.serial_number):
+                        errors["base"] = "duplicate_serial_number"
+                    else:
+                        return await self.async_step_finish()
+                else:
+                    _LOGGER.error("Failed to connect to Sonnen Batterie at %s", user_input[ENTRY_HOST_URL])
+                    errors["base"] = "no_data_from_host"
+            except ClientConnectorError as e:
+                _LOGGER.error("Unable to connect to Sonnen Batterie at %s: %s", user_input[ENTRY_HOST_URL], e)
+                errors["base"] = "failed_to_connect"
+            except Exception as e:
+                _LOGGER.error("Unknown error connecting to Sonnen Batterie at %s: %s", user_input[ENTRY_HOST_URL], e)
+                errors["base"] = "failed_to_connect_unknown"
+
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                vol.Required(CONF_HOST_URL): str,
-                vol.Required(CONF_API_TOKEN): str
+                    vol.Required(ENTRY_NAME, default="My Sonnen Batterie"): str,
+                    vol.Required(ENTRY_HOST_URL): str,
+                    vol.Required(ENTRY_API_TOKEN): str
                 }
             ),
-        )
-
-    async def async_step_name(self, user_input=None):
-        """Handle the step to enter a name for the entity."""
-        default_name = f"Sonnen Batterie (s/n {self.sonnen_batterie_host.serial_number})"
-
-        if user_input is not None:
-            self.user_input[CONF_NAME] = user_input[CONF_NAME]
-            self.user_input[CONF_NAME_IS_DEFAULT] = user_input[CONF_NAME] == default_name  # Set flag to indicate if the name was changed from the default
-            # return self.async_create_entry(title=self.user_input[CONF_NAME], data=self.user_input)
-            return await self.async_step_finish()
-
-        return self.async_show_form(
-            step_id="name",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_NAME, default=default_name): str
-                }
-            ),
+            errors=errors,
         )
 
     async def async_step_finish(self):
         """Finish the config flow and create the entry."""
         await self.sonnen_batterie_host.close_session()  # Close the session
-        return self.async_create_entry(title=self.user_input[CONF_NAME], data=self.user_input)
+        return self.async_create_entry(title=self.user_input[ENTRY_NAME], data=self.user_input)
 
     async def async_abort(self, reason):
         """Abort the config flow."""
