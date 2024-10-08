@@ -1,9 +1,13 @@
 """Asynchronous Python client for the SonnenBatterie API."""
 
 import asyncio
+import logging
+from typing import List
 
 import aiohttp
 from bs4 import BeautifulSoup
+
+from homeassistant.helpers.entity import Entity
 
 from ..const import DOMAIN
 
@@ -13,68 +17,88 @@ URI_READY = "/api/ready"
 
 URI_DASHBOARD = "/dash/dashboard"
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class SonnenBatterieHost:
     """Asynchronous Python client for the SonnenBatterie API."""
 
     def __init__(
         self,
-        host: str,
+        url: str,
         api_token: str,
-        host_name: str,
+        name: str,
         entry_id: str,
         aiohttp_session: aiohttp.ClientSession
     ) -> None:
         """WARNING: Do not call this method directly. Use the create method instead."""
-        self.host = host
+        self.url = url
         self.api_token = api_token
-        self.host_name = host_name
+        self.name = name
         self.entry_id = entry_id
         self.aiohttp_session = aiohttp_session
 
-        self.have_data_from_host = False
         self.data_status = None
         self.data_latestdata = None
-        self.data_dashboard_html = None
+        self._data_dashboard_html = None
         self._serial_number_uri = None
         self.serial_number = None
+
+        self.entities:List[Entity] = []  # List of entities that are associated with this host
 
     @classmethod
     async def create(
         cls,
-        host: str,
+        url: str,
         api_token: str,
-        host_name: str = None,  # Name as given in Config Entry
+        name: str = None,  # Name as given in Config Entry
         entry_id: str = None,
         aiohttp_session: aiohttp.ClientSession = None
     ) -> 'SonnenBatterieHost':
         """Create a new SonnenBatterie object."""
         if aiohttp_session is None:
+            _LOGGER.debug("Creating new aiohttp session for SonnenBatterie host %s", url)
             aiohttp_session = aiohttp.ClientSession()
-        return cls(host=host, api_token=api_token, host_name=host_name, entry_id=entry_id, aiohttp_session=aiohttp_session)
+        return cls(url=url, api_token=api_token, name=name, entry_id=entry_id, aiohttp_session=aiohttp_session)
 
     async def is_connected(self) -> bool:
         """Check if the SonnenBatterie is connected."""
-        async with self.aiohttp_session.get(f"{self.host}{URI_READY}", headers={'Auth-Token': self.api_token}) as response:
-            return response.status == 200 and await response.text() == '"go"'
+        try:
+            async with self.aiohttp_session.get(f"{self.url}{URI_READY}", headers={'Auth-Token': self.api_token}) as response:
+                return response.status == 200 and await response.text() == '"go"'
+        except (TimeoutError, aiohttp.ClientResponseError) as e:
+            _LOGGER.error("Failed to get data from Sonnen Batterie at %s: %s", self.url + URI_READY,  e)
+            return False
 
     async def _get_status_from_host(self) -> None:
-        async with self.aiohttp_session.get(f"{self.host}{URI_STATUS}", headers={'Auth-Token': self.api_token}) as response:
-            self.data_status = await response.json()
+        try:
+            async with self.aiohttp_session.get(f"{self.url}{URI_STATUS}", headers={'Auth-Token': self.api_token}) as response:
+                self.data_status = await response.json()
+        except (TimeoutError, aiohttp.ClientResponseError) as e:
+            _LOGGER.error("Failed to get data from Sonnen Batterie at %s: %s", self.url + URI_STATUS,  e)
+            self.data_status = None
 
     async def _get_latestdata_from_host(self) -> None:
-        async with self.aiohttp_session.get(f"{self.host}{URI_DATA}", headers={'Auth-Token': self.api_token}) as response:
-            self.data_latestdata = await response.json()
+        try:
+            async with self.aiohttp_session.get(f"{self.url}{URI_DATA}", headers={'Auth-Token': self.api_token}) as response:
+                self.data_latestdata = await response.json()
+        except (TimeoutError, aiohttp.ClientResponseError) as e:
+            _LOGGER.error("Failed to get data from Sonnen Batterie at %s: %s", self.url + URI_DATA,  e)
+            self.data_latestdata = None
 
     async def _get_dashboard_html_from_host(self) -> None:
         """Get the dashboard from the host. Response is HTML."""
-        async with self.aiohttp_session.get(f"{self.host}{URI_DASHBOARD}", headers={'Auth-Token': self.api_token}) as response:
-            self.data_dashboard_html = await response.text()
+        try:
+            async with self.aiohttp_session.get(f"{self.url}{URI_DASHBOARD}", headers={'Auth-Token': self.api_token}) as response:
+                self._data_dashboard_html = await response.text()
+        except (TimeoutError, aiohttp.ClientResponseError) as e:
+            _LOGGER.error("Failed to get data from Sonnen Batterie at %s: %s", self.url + URI_DASHBOARD,  e)
+            self._data_dashboard_html = None
 
-    def _parse_dashboard_html(self, html: str) -> None:
+    def _parse_dashboard_html(self) -> None:
         """Parse the dashboard HTML and return the data."""
         # Parse the HTML content
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(self._data_dashboard_html, 'html.parser')
 
         # Find all script tags in the body
         script_tags = soup.body.find_all('script')
@@ -89,46 +113,58 @@ class SonnenBatterieHost:
 
     async def _get_serial_number_from_host(self) -> None:
         # Get the device ID from API URL
-        async with self.aiohttp_session.get(f"{self.host}{self._serial_number_uri}", headers={'Auth-Token': self.api_token}) as response:
-            if response.status != 200:
-                raise aiohttp.ClientResponseError(
-                    request_info=response.request_info,
-                    history=response.history,
-                    status=response.status,
-                    message=f"Failed to fetch serial number from host {self.host}",
-                )
-            serial_data = await response.text()
-        self.serial_number = serial_data.split('SPREE_ID = ')[1].split(';')[0].strip("'")
+        try:
+            async with self.aiohttp_session.get(f"{self.url}{self._serial_number_uri}", headers={'Auth-Token': self.api_token}) as response:
+                serial_data = await response.text()
+            try:
+                self.serial_number = serial_data.split('SPREE_ID = ')[1].split(';')[0].strip("'")
+            except IndexError:
+                _LOGGER.error("Failed to get serial number from Sonnen Batterie at %s: %s", self.url + self._serial_number_uri,  serial_data)
+                raise # Raise the exception to the caller. Cannot continue without the serial number!
+        except (TimeoutError, aiohttp.ClientResponseError) as e:
+            _LOGGER.error("Failed to get data from Sonnen Batterie at %s: %s", self.url + self._serial_number_uri,  e)
+            raise  # Raise the exception to the caller. Cannot continue without the serial number!
 
-    async def get_data_from_host(self) -> None:
-        """Get the latest data from the SonnenBatterie."""
+    async def _get_current_data_from_host(self) -> None:
+        """Get the latest data from the Sonnen Batterie."""
         # Get data from the host in parallel
         await asyncio.gather(
             self._get_status_from_host(),
             self._get_latestdata_from_host(),
-            self._get_dashboard_html_from_host()
         )
 
-        # Parse the dashboard HTML to get the URI for the serial number
-        self._parse_dashboard_html(self.data_dashboard_html)
+    async def _get_static_data_from_host(self) -> None:
+        """Get the static data, e.g. Serial Number, from the Sonnen Batterie."""
+        await self._get_dashboard_html_from_host()  # Get the dashboard HTML
+        self._parse_dashboard_html()  # Parse the dashboard HTML to get the URI for the serial number
+        await self._get_serial_number_from_host()  # Get the serial number from the host
 
-        # Get the serial number from the host
-        await self._get_serial_number_from_host()
+    async def update(self, update_static_data:bool = False, update_current_data:bool = True) -> None:
+        """Update the data from the Sonnen Batterie."""
+        coroutines = []
+        if update_static_data:
+            coroutines.append(self._get_static_data_from_host())
+        if update_current_data:
+            coroutines.append(self._get_current_data_from_host())
+        await asyncio.gather(*coroutines)
 
-        # Set the flag to indicate that we have data from the host
-        self.have_data_from_host = True
+    async def update_callback(self, now) -> None:
+        """Update the data from the Sonnen Batterie using the callback method
+        called from e.g. `async_track_time_interval`."""
+        _LOGGER.debug("Updating data from Sonnen Batterie at %s", self.url)
+        await self.update(update_static_data=False, update_current_data=True)
+        await self.update_entity_states()
+
+    async def update_entity_states(self) -> None:
+        """Update the states of the entities associated with this host."""
+        await asyncio.gather(*(entity.async_update_ha_state(force_refresh=True) for entity in self.entities))
 
     @property
     def data(self) -> dict | None:
         """Get the data from the Sonnen Batterie Host."""
-
-        if not self.have_data_from_host:
-            return None
-
-        # Combine status and data into one dictionary
         return {
             "host": {
-                "url": self.host,
+                "url": self.url,
                 "serial_number": self.serial_number
             },
             "status": self.data_status,

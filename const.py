@@ -4,10 +4,12 @@ DOMAIN = 'sonnen_batterie'
 CONST_COMPONENT_TYPES = ["sensor"]  # ["sensor","select","number","switch"]
 
 # Configuration flow keys
-ENTRY_HOST_URL = 'host_url'
-ENTRY_API_TOKEN = 'api_token'
+ENTRY_URL = 'host_url'
 ENTRY_NAME = 'name'
+ENTRY_API_TOKEN = 'api_token'
 ENTRY_SERIAL_NUMBER = 'serial_number'
+
+POLL_FREQUENCY = 2  # Polling frequency in seconds
 
 DATA_TYPE_FLAG_GROUP = "flag_group"  # Custom data type for to indicate that the data is a group of boolean flags
 
@@ -26,7 +28,7 @@ SENSORS_LIST = [
     ["rsoc", "Relative State of Charge", "status.RSOC", "int", "%", "mdi:battery", None],
     ["remaining_capacity_wh", "Remaining Capacity", "status.RemainingCapacity_Wh", "int", "Wh", "mdi:battery", None],
     ["system_status", "System Status", "status.SystemStatus", "str", None, "mdi:information", None],
-    ["timestamp", "Timestamp", "status.Timestamp", "str", None, "mdi:clock", None],
+    # ["timestamp", "Timestamp", "status.Timestamp", "str", None, "mdi:clock", None],
     ["usoc", "Usable State of Charge", "status.USOC", "int", "%", "mdi:battery", None],
     ["uac", "AC Voltage", "status.Uac", "int", "V", "mdi:flash", None],
     ["ubat", "Battery Voltage", "status.Ubat", "int", "V", "mdi:flash", None],

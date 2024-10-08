@@ -1,4 +1,8 @@
+"""Sensor platform for Sonnen Batterie integration. This platform creates sensors for the Sonnen Batterie integration."""
+
+from collections.abc import Coroutine
 import logging
+from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -16,8 +20,10 @@ async def async_setup_entry(hass, config_entry:ConfigEntry, async_add_entities):
     """Set up sensors from a config entry."""
     sonnen_host: SonnenBatterieHost = get_sonnen_host_by_entry_id(hass=hass, entry_id=config_entry.entry_id)
 
-    # Create a sensor for each sensor in the list
-    entities = [
+    # Create a sensor for each sensor in the list and 
+    # add them to the host object for reference (to be able
+    # to update the state of the sensors later)
+    sonnen_host.entities = [
         SonnenBatterieEntity(
             hass=hass,
             sonnen_host=sonnen_host,
@@ -26,7 +32,9 @@ async def async_setup_entry(hass, config_entry:ConfigEntry, async_add_entities):
         )
         for sensor_config in SENSORS_LIST
     ]
-    async_add_entities(entities)
+
+    # Add the entities to Home Assistant
+    async_add_entities(sonnen_host.entities)
 
     # Register the device
     device_registry = dr.async_get(hass)
@@ -55,37 +63,45 @@ class SonnenBatterieEntity(SensorEntity):
         self._sonnen_host = sonnen_host
         self._config_entry = config_entry
 
-        # Set entity attributes
-            # Elements in sensor_config are: name, friendly name, path in host data, data type, uom and icon
+        # Elements in sensor_config are: name, friendly name, path in host data, data type, uom and icon
         self._measurement_name = sensor_config[0]
-        self._friendly_name = sensor_config[1]
         self._data_path = sensor_config[2]
         self._data_type = sensor_config[3]
-        self._uom = sensor_config[4]
+        self._default_value = sensor_config[6]  # Default value for sensor data cannot be retrieved
+
+        self.host_name = self._sonnen_host.name
+        self.host_name_normalized = "".join([c for c in self.host_name.replace(" ", "_") if c.isalnum() or c == '_']).lower()
+
+        self._name = sensor_config[1]
+        self._unit_of_measurement = sensor_config[4]
         self._icon = sensor_config[5]
-
-        self._name = f"sonnen_batterie_{self.host_name_normalized}_{self._measurement_name}"
         self._unique_id = f"sonnen_batterie_{self._sonnen_host.serial_number}_{self._measurement_name}"
-
-    @property
-    def host_name(self):
-        """Return the name of the host."""
-        return self._sonnen_host.host_name
-
-    @property
-    def host_name_normalized(self):
-        """Remove all chars that are not letters or numbers and make lowercase."""
-        return "".join([c for c in self.host_name if c.isalnum()]).lower()
-
-    @property
-    def unique_id(self):
-        """Return a unique ID for the sensor."""
-        return self._unique_id
+        self._entity_id = f"sensor.{self.host_name_normalized}_{self._measurement_name}"
 
     @property
     def name(self):
         """Return the name of the sensor."""
-        return self._friendly_name
+        return self._name
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement of this entity."""
+        return self._unit_of_measurement
+
+    @property
+    def icon(self):
+        """Return the icon to use in the frontend, if any."""
+        return self._icon
+
+    @property
+    def unique_id(self):
+        """Return a unique ID to use for this entity."""
+        return self._unique_id
+
+    @property
+    def entity_id(self):
+        """Return the entity ID of this entity."""
+        return self._entity_id
 
     @property
     def state(self):
@@ -105,27 +121,22 @@ class SonnenBatterieEntity(SensorEntity):
                     if value is True:  # Ensure that only keys with booleans are considered
                         return flag
                 # If no flag is set, return Default
-                return "Unknown"
+                return self._default_value
 
             # Simple data type. Return data as is.
             else:
                 return data
 
         except KeyError:
-            _LOGGER.error("Could not find data for sensor %s in data from host %s", self._name, self._sonnen_host.host)
-            return None
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement of this sensor."""
-        return self._uom
-
-    @property
-    def icon(self):
-        """Return the icon of the sensor."""
-        return self._icon
+            _LOGGER.error("Could not find data for sensor %s in data from host %s. Returning default value.", self._name, self._sonnen_host.url)
+            return self._default_value
 
     @property
     def device_info(self):
         """Return information to link this entity to a device."""
         return self._sonnen_host.device_info
+
+    def async_update_ha_state(self, force_refresh: bool = False) -> Coroutine[Any, Any, None]:
+        """Update the state of the sensor."""
+        # Added only to see that it exists
+        return super().async_update_ha_state(force_refresh)

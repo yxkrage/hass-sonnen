@@ -1,3 +1,5 @@
+"""Config flow for Sonnen Batterie integration."""
+
 import logging
 
 from aiohttp.client_exceptions import ClientConnectorError
@@ -5,13 +7,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 
-from .const import (
-    DOMAIN,
-    ENTRY_API_TOKEN,
-    ENTRY_HOST_URL,
-    ENTRY_NAME,
-    ENTRY_SERIAL_NUMBER,
-)
+from .const import DOMAIN, ENTRY_API_TOKEN, ENTRY_NAME, ENTRY_SERIAL_NUMBER, ENTRY_URL
 from .sonnen_host import SonnenBatterieHost
 from .utils import (
     check_entries_for_duplicate_name,
@@ -38,30 +34,28 @@ class SonnenBatterieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors = {}
         if user_input is not None:
-            _LOGGER.debug("Testing connection to Sonnen Batterie at %s", user_input[ENTRY_HOST_URL])
+            _LOGGER.debug("Testing connection to Sonnen Batterie at %s", user_input[ENTRY_URL])
             try:
-                await self._create_sonnen_batterie_host(user_input[ENTRY_HOST_URL], user_input[ENTRY_API_TOKEN])
-                await self.sonnen_batterie_host.get_data_from_host()
-                if self.sonnen_batterie_host.data:
-                    _LOGGER.info("Connection to Sonnen Batterie at %s successful", user_input[ENTRY_HOST_URL])
-                    user_input[ENTRY_SERIAL_NUMBER] = self.sonnen_batterie_host.serial_number
-                    self.user_input = user_input  # Store the user input for the next step
+                await self._create_sonnen_batterie_host(user_input[ENTRY_URL], user_input[ENTRY_API_TOKEN])
+                await self.sonnen_batterie_host.update(update_static_data=True, update_current_data=False)
 
-                    # Check that no other entry exists for this host name or serial number
-                    if check_entries_for_duplicate_name(hass=self.hass, name=user_input[ENTRY_NAME]):
-                        errors["base"] = "duplicate_name"
-                    elif check_entries_for_duplicate_serial_number(hass=self.hass, serial_number=self.sonnen_batterie_host.serial_number):
-                        errors["base"] = "duplicate_serial_number"
-                    else:
-                        return await self.async_step_finish()
+                # If no exception was raised, the connection was successful
+                _LOGGER.info("Connection to Sonnen Batterie at %s successful", user_input[ENTRY_URL])
+                user_input[ENTRY_SERIAL_NUMBER] = self.sonnen_batterie_host.serial_number
+                self.user_input = user_input  # Store the user input for the next step
+
+                # Check that no other entry exists for this host name or serial number
+                if check_entries_for_duplicate_name(hass=self.hass, name=user_input[ENTRY_NAME]):
+                    errors["base"] = "duplicate_name"
+                elif check_entries_for_duplicate_serial_number(hass=self.hass, serial_number=self.sonnen_batterie_host.serial_number):
+                    errors["base"] = "duplicate_serial_number"
                 else:
-                    _LOGGER.error("Failed to connect to Sonnen Batterie at %s", user_input[ENTRY_HOST_URL])
-                    errors["base"] = "no_data_from_host"
+                    return await self.async_step_finish()
             except ClientConnectorError as e:
-                _LOGGER.error("Unable to connect to Sonnen Batterie at %s: %s", user_input[ENTRY_HOST_URL], e)
+                _LOGGER.warning("Unable to connect to Sonnen Batterie at %s: %s", user_input[ENTRY_URL], e)
                 errors["base"] = "failed_to_connect"
             except Exception as e:
-                _LOGGER.error("Unknown error connecting to Sonnen Batterie at %s: %s", user_input[ENTRY_HOST_URL], e)
+                _LOGGER.error("Unknown error connecting to Sonnen Batterie at %s: %s", user_input[ENTRY_URL], e)
                 errors["base"] = "failed_to_connect_unknown"
 
 
@@ -70,7 +64,7 @@ class SonnenBatterieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(ENTRY_NAME, default="My Sonnen Batterie"): str,
-                    vol.Required(ENTRY_HOST_URL): str,
+                    vol.Required(ENTRY_URL): str,
                     vol.Required(ENTRY_API_TOKEN): str
                 }
             ),
@@ -95,7 +89,7 @@ class SonnenBatterieConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create a SonnenBatterieHost object."""
         # aiohttp_session = async_get_clientsession(hass=self.hass)
         self.sonnen_batterie_host = await SonnenBatterieHost.create(
-            host=host_url,
+            url=host_url,
             api_token=api_token,
             # aiohttp_session=aiohttp_session
         )

@@ -1,3 +1,5 @@
+"""Helper functions for the SonnenBatterie integration."""
+
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, ENTRY_SERIAL_NUMBER

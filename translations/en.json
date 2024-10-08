@@ -14,7 +14,6 @@
     "error": {
       "duplicate_name": "A Sonnen Batterie with this name is already configured. Please choose a different name.",
       "duplicate_serial_number": "A Sonnen Batterie with this serial number is already configured.",
-      "no_data_from_host": "Failed retrieve data from the Sonnen Batterie. Please check API token and try again.",
       "failed_to_connect": "Failed to connect to the Sonnen Batterie. Please check the URL and try again.",
       "failed_to_connect_unknown": "An unknown error occurred while trying to connect to the Sonnen Batterie."
     }
