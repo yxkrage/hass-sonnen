@@ -7,7 +7,7 @@ from typing import List
 import aiohttp
 from bs4 import BeautifulSoup
 
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity import DeviceInfo, Entity
 
 from ..const import DOMAIN
 
@@ -45,6 +45,22 @@ class SonnenBatterieHost:
         self.serial_number = None
 
         self.entities:List[Entity] = []  # List of entities that are associated with this host
+
+        self._device_info = DeviceInfo(
+            identifiers = {(DOMAIN, self.serial_number)},
+            name = "Sonnen Batterie",
+            manufacturer = "Sonnen GmbH",
+            model="Unknown",  # TODO: Get the model from the host
+            serial_number=self.serial_number,
+            # sw_version = "Unknown",  # TODO: Get the software version from the host
+            # entity_picture="/local/custom_components/sonnen_batterie/icon.png"  # Path to your custom PNG icon
+        )
+        # {
+        #     "identifiers": {(DOMAIN, self.serial_number)},
+        #     "name": "Sonnen Batterie",
+        #     "manufacturer": "Sonnen GmbH",
+        #     "model": "Unknown",  # TODO: Get the model from the host
+        # }
 
     @classmethod
     async def create(
@@ -178,9 +194,4 @@ class SonnenBatterieHost:
     @property
     def device_info(self) -> dict:
         """Return information to link this entity to a device."""
-        return {
-            "identifiers": {(DOMAIN, self.serial_number)},
-            "name": "Sonnen Batterie",
-            "manufacturer": "Sonnen GmbH",
-            "model": "Unknown"  # TODO: Get the model from the host
-        }
+        return self._device_info

@@ -72,36 +72,41 @@ class SonnenBatterieEntity(SensorEntity):
         self.host_name = self._sonnen_host.name
         self.host_name_normalized = "".join([c for c in self.host_name.replace(" ", "_") if c.isalnum() or c == '_']).lower()
 
-        self._name = sensor_config[1]
-        self._unit_of_measurement = sensor_config[4]
-        self._icon = sensor_config[5]
-        self._unique_id = f"sonnen_batterie_{self._sonnen_host.serial_number}_{self._measurement_name}"
-        self._entity_id = f"sensor.{self.host_name_normalized}_{self._measurement_name}"
+        self._attr_name = sensor_config[1]
+        self._attr_unit_of_measurement = sensor_config[4]
+        self._attr_icon = sensor_config[5]
+        self._attr_unique_id = f"sonnen_batterie_{self._sonnen_host.serial_number}_{self._measurement_name}"
+        self._attr_entity_id = f"sensor.{self.host_name_normalized}_{self._measurement_name}"
 
     @property
     def name(self):
         """Return the name of the sensor."""
-        return self._name
+        return self._attr_name
 
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement of this entity."""
-        return self._unit_of_measurement
+        return self._attr_unit_of_measurement
 
     @property
     def icon(self):
         """Return the icon to use in the frontend, if any."""
-        return self._icon
+        return self._attr_icon
 
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return self._unique_id
+        return self._attr_unique_id
 
     @property
     def entity_id(self):
         """Return the entity ID of this entity."""
-        return self._entity_id
+        return self._attr_entity_id
+
+    @entity_id.setter
+    def entity_id(self, value):
+        """Set the entity ID of this entity."""
+        self._attr_entity_id = value
 
     @property
     def state(self):
@@ -128,7 +133,7 @@ class SonnenBatterieEntity(SensorEntity):
                 return data
 
         except KeyError:
-            _LOGGER.error("Could not find data for sensor %s in data from host %s. Returning default value.", self._name, self._sonnen_host.url)
+            _LOGGER.error("Could not find data for sensor %s in data from host %s. Returning default value.", self._attr_name, self._sonnen_host.url)
             return self._default_value
 
     @property
