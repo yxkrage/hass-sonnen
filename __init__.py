@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
-    CONST_COMPONENT_TYPES,
     DOMAIN,
     ENTRY_API_TOKEN,
     ENTRY_NAME,
@@ -60,7 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN].append(sonnen_host)
 
     # Register the platform (e.g., sensor, switch)
-    hass.async_create_task(hass.config_entries.async_forward_entry_setup(entry, "sensor"))
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     # Schedule the update every 5 seconds
     async_track_time_interval(hass, sonnen_host.update_callback, timedelta(seconds=POLL_FREQUENCY))
@@ -69,6 +68,4 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    # hass.data.pop(DOMAIN)
-    # return True
-    return await hass.config_entries.async_unload_platforms(entry, CONST_COMPONENT_TYPES)
+    return await hass.config_entries.async_unload_platforms(entry, ["sensor"])
